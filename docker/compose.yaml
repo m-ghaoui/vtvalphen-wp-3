@@ -1,0 +1,63 @@
+name: vtv
+
+services:
+
+  # Init container to fix permissions
+  fix-permissions:
+    image: wordpress
+    user: root
+    volumes:
+      - ../site/:/var/www/html
+    command: >
+      bash -c "
+        chown -R www-data:www-data /var/www/html &&
+        chmod -R 755 /var/www/html &&
+        echo 'Permissions fixed!'
+      "
+
+  wp:
+    image: wordpress
+    restart: always
+    depends_on:
+      - fix-permissions
+      - db
+    ports:
+      - 8080:80
+    environment:
+      WORDPRESS_DB_HOST: db
+      WORDPRESS_DB_USER: wp
+      WORDPRESS_DB_PASSWORD: 1234sys!
+      WORDPRESS_DB_NAME: wp
+      WORDPRESS_CONFIG_EXTRA: |
+        define('FORCE_SSL_ADMIN', false);
+        define('FORCE_SSL_LOGIN', false);
+        define('WP_HOME', 'http://localhost:8080');
+        define('WP_SITEURL', 'http://localhost:8080');
+    volumes:
+      - ../site/:/var/www/html
+
+  db:
+    image: mariadb:10.6.22
+    restart: always
+    environment:
+      MYSQL_DATABASE: wp
+      MYSQL_USER: wp
+      MYSQL_PASSWORD: 1234sys!
+      MYSQL_RANDOM_ROOT_PASSWORD: '1'
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - db:/var/lib/mysql
+      - ~/tmp_wp:/tmp_wp
+
+  phpmyadmin:
+    image: phpmyadmin
+    restart: always
+    ports:
+      - 8081:80
+    environment:
+      - PMA_ARBITRARY=1
+    depends_on:
+      - db
+
+volumes:
+  db:
